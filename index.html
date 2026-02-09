@@ -155,8 +155,8 @@
   // =========================================================
   // CONFIG (PEGA LO TUYO)
   // =========================================================
-  const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";        // ej: https://xxxxx.supabase.co
-  const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY"; // publishable key (sb_publishable_...)
+  const SUPABASE_URL = "https://bhxtpkfdbdobkhonvvwm.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_....";
 
   // Airbag: no creamos cliente si no hay config
   const isConfigured = !(SUPABASE_URL.startsWith("PEGA_") || SUPABASE_ANON_KEY.startsWith("PEGA_"));
@@ -359,7 +359,7 @@
         <div style="background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:20px;">
           <div style="font-weight:900;font-size:24px;margin-bottom:6px">Tu cocina. Tus recetas.</div>
           <div style="color:var(--muted);margin-bottom:16px">
-            Entra con tu email para ver tus recetas y las que te compartan.
+            Guarda tus recetas, ordénalas por categorías y comparte solo las que quieras.
           </div>
 
           ${!isConfigured ? `
