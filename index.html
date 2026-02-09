@@ -53,6 +53,11 @@
     .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 12px;border-radius:12px;box-shadow:var(--shadow);display:none;z-index:99}
     .toast.show{display:block}
     code.inline{background:rgba(15,23,42,.06);padding:2px 6px;border-radius:8px}
+
+    /* ===== Login mode (sin sesión) ===== */
+    body.loggedOut .layout { grid-template-columns: 1fr; }
+    body.loggedOut .sidebar { display: none; }
+    body.loggedOut .panel { min-height: calc(100vh - 120px); display:flex; align-items:center; justify-content:center; }
   </style>
 </head>
 <body>
@@ -61,7 +66,6 @@
   <div class="auth">
     <small id="authStatus" style="color:var(--muted)">Sin sesión</small>
     <span class="chip" id="userChip">—</span>
-    <button class="btn primary" id="btnLogin">Entrar</button>
     <button class="btn" id="btnLogout" style="display:none">Salir</button>
   </div>
 </header>
@@ -73,34 +77,10 @@
         <div style="font-weight:900;font-size:16px">Menú</div>
         <div class="subtitle">Elige un apartado y luego una receta.</div>
         <div class="search"><input id="q" type="search" placeholder="Buscar receta…" /></div>
-        <div class="subtitle">Setup: edita <code class="inline">SUPABASE_URL</code> y <code class="inline">SUPABASE_ANON_KEY</code>.</div>
       </div>
       <div class="menu" id="menu"></div>
     </aside>
     <main class="main"><div class="panel" id="view"></div></main>
-  </div>
-</div>
-
-<!-- Modal login -->
-<div class="overlay" id="authOverlay" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
-    <div class="modalHeader">
-      <h2 id="authTitle">Entrar / Crear cuenta</h2>
-      <button class="btn" id="btnAuthClose">✖</button>
-    </div>
-    <div class="modalBody">
-      <div class="formGrid">
-        <div class="field span2">
-          <label>Email</label>
-          <input id="authEmail" placeholder="tuemail@algo.com" />
-          <div style="font-size:12px;color:var(--muted)">Te mando un enlace (magic link).</div>
-        </div>
-      </div>
-    </div>
-    <div class="modalFooter">
-      <button class="btn" id="btnAuthCancel">Cancelar</button>
-      <button class="btn primary" id="btnSendLink">Enviar enlace</button>
-    </div>
   </div>
 </div>
 
@@ -173,11 +153,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // =========================================================
-  // CONFIG
+  // CONFIG (PEGA LO TUYO)
   // =========================================================
-  const SUPABASE_URL = "https://bhxtpkfdbdobkhonvvwm.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_XXXXXXXXXXXX";
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";        // ej: https://xxxxx.supabase.co
+  const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY"; // publishable key (sb_publishable_...)
+
+  // Airbag: no creamos cliente si no hay config
+  const isConfigured = !(SUPABASE_URL.startsWith("PEGA_") || SUPABASE_ANON_KEY.startsWith("PEGA_"));
+  let sb = null;
+  if(isConfigured){
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
 
   let categories = ["Desayunos","Pastas","Carnes","Pescados","Arroces","Verduras","Postres","Salsas y básicos","Meal prep / Tupper","Recetas PRO"];
   let session = null;
@@ -193,15 +179,10 @@
   const elQ = document.getElementById('q');
   const toast = document.getElementById('toast');
 
-  // Auth
-  const btnLogin = document.getElementById('btnLogin');
+  // Header auth
   const btnLogout = document.getElementById('btnLogout');
   const authStatus = document.getElementById('authStatus');
   const userChip = document.getElementById('userChip');
-
-  const authOverlay = document.getElementById('authOverlay');
-  const authEmail = document.getElementById('authEmail');
-  const btnSendLink = document.getElementById('btnSendLink');
 
   // Editor
   const overlay = document.getElementById('overlay');
@@ -236,44 +217,33 @@
   function openModal(el){el.classList.add('show');el.setAttribute('aria-hidden','false')}
   function closeModal(el){el.classList.remove('show');el.setAttribute('aria-hidden','true')}
 
-  function ensureConfigured(){
-    if(SUPABASE_URL.startsWith('PEGA_') || SUPABASE_ANON_KEY.startsWith('PEGA_')){
-      elView.innerHTML = `<div class="empty"><h2 style="margin:0 0 8px">Falta configurar Supabase</h2>
-        <p style="margin:0 0 12px">Edita <code class="inline">SUPABASE_URL</code> y <code class="inline">SUPABASE_ANON_KEY</code> en <b>index.html</b>.</p>
-        <p style="margin:0">En README tienes el SQL (incluye compartir por email).</p></div>`;
-      return false;
-    }
-    return true;
-  }
-
   function fillCategorySelect(selected){
     fCategory.innerHTML='';
     categories.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;fCategory.appendChild(o);});
     fCategory.value = selected && categories.includes(selected) ? selected : categories[0];
   }
 
-  // =========================================================
-  // Auth
-  // =========================================================
-  async function refreshSession(){
-    const { data } = await sb.auth.getSession();
-    session = data.session;
-    paintAuth();
-  }
   function paintAuth(){
     if(session?.user){
       authStatus.textContent='Sesión activa';
       userChip.textContent=session.user.email||session.user.id.slice(0,8);
       userChip.classList.add('ok');
-      btnLogin.style.display='none';
       btnLogout.style.display='inline-block';
     }else{
       authStatus.textContent='Sin sesión';
       userChip.textContent='—';
       userChip.classList.remove('ok');
-      btnLogin.style.display='inline-block';
       btnLogout.style.display='none';
     }
+  }
+
+  // =========================================================
+  // Auth + DB
+  // =========================================================
+  async function refreshSession(){
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+    paintAuth();
   }
 
   async function loginWithMagicLink(email){
@@ -282,21 +252,16 @@
     if(error){ alert(error.message); return; }
     showToast('Te mandé un enlace al email ✅');
   }
+
   async function logout(){
     await sb.auth.signOut();
     session=null; recipes=[];
-    paintAuth(); render();
+    paintAuth();
+    render();
   }
 
-  // =========================================================
-  // Data
-  // =========================================================
   async function loadRecipes(){
     if(!session?.user){ recipes=[]; return; }
-    // Importante: aquí NO filtramos. Deja que RLS haga su magia:
-    // - mis recetas
-    // - recetas públicas
-    // - recetas compartidas conmigo (recipe_shares)
     const { data, error } = await sb.from('recipes').select('*').order('created_at',{ascending:false});
     if(error){ alert(error.message); return; }
     recipes = data||[];
@@ -330,7 +295,6 @@
   async function shareRecipeReadOnly(recipeId, email){
     const cleaned = (email||'').trim().toLowerCase();
     if(!cleaned){ alert('Pon un email'); shareEmail.focus(); return; }
-    // Insertamos un permiso de lectura por email
     const { error } = await sb.from('recipe_shares').insert({
       recipe_id: recipeId,
       shared_with_email: cleaned
@@ -340,7 +304,7 @@
   }
 
   // =========================================================
-  // Render
+  // Routing + render
   // =========================================================
   function parseHash(){ const h=location.hash.replace('#',''); const p=new URLSearchParams(h); return {cat:p.get('cat'), recipe:p.get('recipe')}; }
   function goCategory(cat){ location.hash=`cat=${encodeURIComponent(cat)}`; }
@@ -351,6 +315,7 @@
     return recipes.filter(r=>r.category===cat)
       .filter(r=>!q||r.title.toLowerCase().includes(q)||(r.description||'').toLowerCase().includes(q)).length;
   }
+
   function renderMenu(activeCat){
     elMenu.innerHTML='';
     categories.forEach(cat=>{
@@ -361,6 +326,7 @@
       elMenu.appendChild(b);
     });
   }
+
   function cardRecipe(r){
     const isMine=session?.user && r.owner_id===session.user.id;
     const vis=r.visibility==='public'?'pública':'privada';
@@ -376,6 +342,7 @@
       <p style="margin:10px 0 0;color:var(--muted);font-size:13px">${esc(r.description||'')}</p>
     </div>`;
   }
+
   function listBlock(title, items){
     if(!items||!items.length) return '';
     return `<div class="section"><h3>${esc(title)}</h3><ul>${items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
@@ -385,16 +352,53 @@
     return `<div class="section"><h3>Preparación paso a paso</h3><ol>${items.map(i=>`<li>${esc(i)}</li>`).join('')}</ol></div>`;
   }
 
-  function renderCategory(cat){
-    if(!ensureConfigured()) return;
-    if(!session?.user){
-      elView.innerHTML = `<div class="empty"><h2 style="margin:0 0 8px">Entra con tu email</h2>
-        <p style="margin:0 0 12px">Luego podrás ver tus recetas + las que te compartan por email.</p>
-        <button class="btn primary" onclick="document.getElementById('btnLogin').click()">Entrar</button></div>`;
-      return;
+  function renderLoginScreen(){
+    document.body.classList.add('loggedOut');
+    elView.innerHTML = `
+      <div style="width:min(520px,100%);">
+        <div style="background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:20px;">
+          <div style="font-weight:900;font-size:24px;margin-bottom:6px">Bienvenido al Recetario JFx</div>
+          <div style="color:var(--muted);margin-bottom:16px">
+            Entra con tu email para ver tus recetas y las que te compartan.
+          </div>
+
+          ${!isConfigured ? `
+            <div style="border:1px solid rgba(185,28,28,.25);background:rgba(185,28,28,.06);padding:12px;border-radius:16px;margin-bottom:14px;color:#7f1d1d;font-weight:800">
+              Falta configurar Supabase en <code class="inline">index.html</code> (SUPABASE_URL y SUPABASE_ANON_KEY).
+            </div>
+          ` : ''}
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <input id="loginEmail"
+                   placeholder="tuemail@algo.com"
+                   style="flex:1;min-width:220px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;outline:none;font:inherit" />
+            <button class="btn primary" id="loginSend" ${!isConfigured?'disabled style="opacity:.55;cursor:not-allowed"':''}>Enviar enlace</button>
+          </div>
+
+          <div style="color:var(--muted);font-size:12px;margin-top:10px">
+            Te llega un email con un enlace (magic link). No hay contraseña.
+          </div>
+        </div>
+      </div>
+    `;
+
+    const input = document.getElementById('loginEmail');
+    const btn = document.getElementById('loginSend');
+
+    if(isConfigured){
+      btn.onclick = async () => {
+        const email = input.value.trim();
+        if(!email){ alert('Pon tu email'); input.focus(); return; }
+        await loginWithMagicLink(email);
+      };
+      setTimeout(()=>input.focus(), 50);
     }
+  }
+
+  function renderCategory(cat){
     const q=elQ.value.trim().toLowerCase();
     const list=recipes.filter(r=>r.category===cat).filter(r=>!q||r.title.toLowerCase().includes(q)||(r.description||'').toLowerCase().includes(q));
+
     elView.innerHTML = `<div class="crumbs">Menú / ${esc(cat)}</div>
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap">
         <h2 style="margin:0">${esc(cat)}</h2><div class="meta">${list.length} receta(s)</div>
@@ -406,7 +410,6 @@
   }
 
   function renderRecipe(id){
-    if(!ensureConfigured()) return;
     const r=recipes.find(x=>x.id===id);
     if(!r){ elView.innerHTML=`<div class="empty">No existe o no tienes permiso.</div>`; return; }
     const isMine=session?.user && r.owner_id===session.user.id;
@@ -459,9 +462,25 @@
   }
 
   function render(){
+    if(!isConfigured){
+      session = null;
+      paintAuth();
+      renderLoginScreen();
+      return;
+    }
+
     const {cat, recipe}=parseHash();
     const activeCat=cat||categories[0];
+
+    if(!session?.user){
+      paintAuth();
+      renderLoginScreen();
+      return;
+    }
+
+    document.body.classList.remove('loggedOut');
     renderMenu(activeCat);
+
     if(recipe) renderRecipe(recipe);
     else renderCategory(activeCat);
   }
@@ -477,6 +496,7 @@
     fVariants.value=''; fStorage.value=''; fNotes.value='';
     fillCategorySelect(categories[0]);
   }
+
   function openEditor(r){
     if(!session?.user){ alert('Primero entra con tu email'); return; }
     if(r){
@@ -519,10 +539,6 @@
   // =========================================================
   // Wire UI events
   // =========================================================
-  document.getElementById('btnAuthClose').onclick = () => closeModal(authOverlay);
-  document.getElementById('btnAuthCancel').onclick = () => closeModal(authOverlay);
-  authOverlay.addEventListener('click', (e)=>{ if(e.target===authOverlay) closeModal(authOverlay); });
-
   document.getElementById('btnClose').onclick = () => closeModal(overlay);
   document.getElementById('btnCancel').onclick = () => closeModal(overlay);
   overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeModal(overlay); });
@@ -537,13 +553,7 @@
 
   document.getElementById('btnSave').onclick = saveFromForm;
 
-  btnLogin.onclick = ()=>{ openModal(authOverlay); setTimeout(()=>authEmail.focus(),50); }
   btnLogout.onclick = logout;
-  btnSendLink.onclick = async ()=>{
-    const email=authEmail.value.trim(); if(!email){ alert('Pon tu email'); authEmail.focus(); return; }
-    await loginWithMagicLink(email);
-    closeModal(authOverlay);
-  };
 
   elQ.addEventListener('input', render);
   window.addEventListener('hashchange', render);
@@ -552,7 +562,12 @@
   // INIT
   // =========================================================
   (async function init(){
-    if(!ensureConfigured()) return;
+    // Si no hay config, enseñamos login mode con aviso
+    if(!isConfigured){
+      document.body.classList.add('loggedOut');
+      render();
+      return;
+    }
 
     await refreshSession();
 
@@ -560,12 +575,14 @@
       session=newSession;
       paintAuth();
       await loadRecipes();
+      // si no hay hash, entra a la primera categoría
+      if(session?.user && !location.hash) location.hash = `cat=${encodeURIComponent(categories[0])}`;
       render();
     });
 
     await loadRecipes();
 
-    if(!location.hash) location.hash = `cat=${encodeURIComponent(categories[0])}`;
+    if(session?.user && !location.hash) location.hash = `cat=${encodeURIComponent(categories[0])}`;
     render();
   })();
 </script>
