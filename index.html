@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Recetario JFx (Multiusuario + Compartir)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{--bg:#f4f5f7;--card:#fff;--text:#0f172a;--muted:#6b7280;--line:#e5e7eb;--accent:#153293;--accent2:#A212C4;--radius:18px;--shadow:0 18px 40px rgba(15,23,42,.10);--danger:#b91c1c}
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;z-index:10;padding:14px 18px;border-bottom:1px solid var(--line);background:#fff;display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .left{display:flex;align-items:center;gap:10px} h1{margin:0;font-size:18px}
+    .badge{font-size:12px;color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent2));padding:6px 10px;border-radius:999px}
+    .btn{border:1px solid var(--line);background:#fff;padding:10px 12px;border-radius:14px;cursor:pointer;font-weight:900}
+    .btn.primary{border-color:rgba(21,50,147,.30);background:rgba(21,50,147,.08)}
+    .btn.danger{border-color:rgba(185,28,28,.35);background:rgba(185,28,28,.08);color:var(--danger)}
+    .wrap{max-width:1200px;margin:0 auto;padding:18px}
+    .layout{display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start}
+    .sidebar,.panel{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .sidebar{overflow:hidden} .sideTop{padding:16px;border-bottom:1px solid var(--line)}
+    .subtitle{color:var(--muted);font-size:13px;margin-top:6px}
+    .search{margin-top:12px} .search input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;outline:none}
+    .menu{padding:10px}
+    .menuBtn{width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:14px;border:1px solid transparent;background:transparent;cursor:pointer;text-align:left;font-weight:900}
+    .menuBtn span{color:var(--muted);font-weight:800;font-size:12px}
+    .menuBtn:hover{background:rgba(21,50,147,.06)} .menuBtn.active{background:rgba(21,50,147,.10);border:1px solid rgba(21,50,147,.18)}
+    .panel{padding:18px;min-height:70vh} .crumbs{color:var(--muted);font-size:13px;margin-bottom:10px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:12px}
+    .card{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--card);cursor:pointer;transition:.15s ease}
+    .card:hover{transform:translateY(-2px)} .card h3{margin:0 0 8px;font-size:16px}
+    .meta{color:var(--muted);font-size:12.5px;display:flex;gap:8px;flex-wrap:wrap}
+    .pill{border:1px solid var(--line);border-radius:999px;padding:4px 8px}
+    .topActions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 6px}
+    .section{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px} .section h3{margin:0 0 8px}
+    ul,ol{padding-left:18px;margin:0} li{margin:6px 0}
+    .empty{text-align:center;color:var(--muted);padding:40px 12px}
+    .auth{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .chip{border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-weight:900}
+    .chip.ok{border-color:rgba(21,50,147,.25);background:rgba(21,50,147,.06)}
+    /* Modal */
+    .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:18px}
+    .overlay.show{display:flex}
+    .modal{width:min(920px,100%);max-height:85vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:var(--shadow);border:1px solid var(--line)}
+    .modalHeader{position:sticky;top:0;background:#fff;padding:16px 16px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .modalHeader h2{margin:0;font-size:18px} .modalBody{padding:16px}
+    .formGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field label{font-size:12px;color:var(--muted);font-weight:900}
+    .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:14px;outline:none;font:inherit}
+    .field textarea{min-height:92px;resize:vertical} .span2{grid-column:1/-1}
+    .modalFooter{padding:14px 16px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+    @media (max-width:980px){.layout{grid-template-columns:1fr}.formGrid{grid-template-columns:1fr}}
+    @media print{header,.sidebar,.topActions{display:none!important}.wrap{padding:0}.panel{box-shadow:none;border:none}body{background:#fff}}
+    .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 12px;border-radius:12px;box-shadow:var(--shadow);display:none;z-index:99}
+    .toast.show{display:block}
+    code.inline{background:rgba(15,23,42,.06);padding:2px 6px;border-radius:8px}
+  </style>
+</head>
+<body>
+<header>
+  <div class="left"><h1>Recetario JFx</h1><span class="badge">multiusuario + compartir</span></div>
+  <div class="auth">
+    <small id="authStatus" style="color:var(--muted)">Sin sesión</small>
+    <span class="chip" id="userChip">—</span>
+    <button class="btn primary" id="btnLogin">Entrar</button>
+    <button class="btn" id="btnLogout" style="display:none">Salir</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sideTop">
+        <div style="font-weight:900;font-size:16px">Menú</div>
+        <div class="subtitle">Elige un apartado y luego una receta.</div>
+        <div class="search"><input id="q" type="search" placeholder="Buscar receta…" /></div>
+        <div class="subtitle">Setup: edita <code class="inline">SUPABASE_URL</code> y <code class="inline">SUPABASE_ANON_KEY</code>.</div>
+      </div>
+      <div class="menu" id="menu"></div>
+    </aside>
+    <main class="main"><div class="panel" id="view"></div></main>
+  </div>
+</div>
+
+<!-- Modal login -->
+<div class="overlay" id="authOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="modalHeader">
+      <h2 id="authTitle">Entrar / Crear cuenta</h2>
+      <button class="btn" id="btnAuthClose">✖</button>
+    </div>
+    <div class="modalBody">
+      <div class="formGrid">
+        <div class="field span2">
+          <label>Email</label>
+          <input id="authEmail" placeholder="tuemail@algo.com" />
+          <div style="font-size:12px;color:var(--muted)">Te mando un enlace (magic link).</div>
+        </div>
+      </div>
+    </div>
+    <div class="modalFooter">
+      <button class="btn" id="btnAuthCancel">Cancelar</button>
+      <button class="btn primary" id="btnSendLink">Enviar enlace</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editor receta -->
+<div class="overlay" id="overlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modalHeader">
+      <h2 id="modalTitle">Nueva receta</h2>
+      <button class="btn" id="btnClose">✖</button>
+    </div>
+    <div class="modalBody">
+      <div class="formGrid">
+        <div class="field span2"><label>Título</label><input id="fTitle" /></div>
+        <div class="field"><label>Categoría</label><select id="fCategory"></select></div>
+        <div class="field"><label>Visibilidad</label>
+          <select id="fVisibility"><option value="private">Privada</option><option value="public">Pública</option></select>
+          <div style="font-size:12px;color:var(--muted)">Pública = cualquiera con link puede verla.</div>
+        </div>
+        <div class="field"><label>Tiempo</label><input id="fTime" placeholder="25 min" /></div>
+        <div class="field"><label>Dificultad</label><input id="fDifficulty" placeholder="Fácil/Media/Pro" /></div>
+        <div class="field"><label>Raciones</label><input id="fServings" placeholder="4" /></div>
+        <div class="field span2"><label>Descripción breve</label><textarea id="fDescription"></textarea></div>
+        <div class="field span2"><label>Ingredientes (1 por línea)</label><textarea id="fIngredients"></textarea></div>
+        <div class="field span2"><label>Preparación (1 por línea)</label><textarea id="fSteps"></textarea></div>
+        <div class="field span2"><label>Puntos clave (1 por línea)</label><textarea id="fKeyPoints"></textarea></div>
+        <div class="field span2"><label>Textura (1 por línea)</label><textarea id="fTexture"></textarea></div>
+        <div class="field span2"><label>Variantes (1 por línea)</label><textarea id="fVariants"></textarea></div>
+        <div class="field span2"><label>Conservación (1 por línea)</label><textarea id="fStorage"></textarea></div>
+        <div class="field span2"><label>Notas (1 por línea)</label><textarea id="fNotes"></textarea></div>
+      </div>
+    </div>
+    <div class="modalFooter">
+      <button class="btn" id="btnCancel">Cancelar</button>
+      <button class="btn primary" id="btnSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal compartir -->
+<div class="overlay" id="shareOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+    <div class="modalHeader">
+      <h2 id="shareTitle">Compartir receta (solo lectura)</h2>
+      <button class="btn" id="btnShareClose">✖</button>
+    </div>
+    <div class="modalBody">
+      <div class="formGrid">
+        <div class="field span2">
+          <label>Email del destinatario</label>
+          <input id="shareEmail" placeholder="amigo@correo.com" />
+          <div style="font-size:12px;color:var(--muted)">Ese email debe iniciar sesión en la app para verla.</div>
+        </div>
+        <div class="field span2">
+          <label>Nota</label>
+          <div style="font-size:12px;color:var(--muted)">
+            Esto NO hace pública la receta. Solo concede permiso de lectura a ese email.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modalFooter">
+      <button class="btn" id="btnShareCancel">Cancelar</button>
+      <button class="btn primary" id="btnShareSave">Compartir</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // =========================================================
+  // CONFIG
+  // =========================================================
+  const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";
+  const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let categories = ["Desayunos","Pastas","Carnes","Pescados","Arroces","Verduras","Postres","Salsas y básicos","Meal prep / Tupper","Recetas PRO"];
+  let session = null;
+  let recipes = [];
+  let editingUuid = null;
+
+  // compartir
+  let sharingRecipeId = null;
+
+  // UI
+  const elMenu = document.getElementById('menu');
+  const elView = document.getElementById('view');
+  const elQ = document.getElementById('q');
+  const toast = document.getElementById('toast');
+
+  // Auth
+  const btnLogin = document.getElementById('btnLogin');
+  const btnLogout = document.getElementById('btnLogout');
+  const authStatus = document.getElementById('authStatus');
+  const userChip = document.getElementById('userChip');
+
+  const authOverlay = document.getElementById('authOverlay');
+  const authEmail = document.getElementById('authEmail');
+  const btnSendLink = document.getElementById('btnSendLink');
+
+  // Editor
+  const overlay = document.getElementById('overlay');
+  const modalTitle = document.getElementById('modalTitle');
+
+  const fTitle = document.getElementById('fTitle');
+  const fCategory = document.getElementById('fCategory');
+  const fVisibility = document.getElementById('fVisibility');
+  const fTime = document.getElementById('fTime');
+  const fDifficulty = document.getElementById('fDifficulty');
+  const fServings = document.getElementById('fServings');
+  const fDescription = document.getElementById('fDescription');
+  const fIngredients = document.getElementById('fIngredients');
+  const fSteps = document.getElementById('fSteps');
+  const fKeyPoints = document.getElementById('fKeyPoints');
+  const fTexture = document.getElementById('fTexture');
+  const fVariants = document.getElementById('fVariants');
+  const fStorage = document.getElementById('fStorage');
+  const fNotes = document.getElementById('fNotes');
+
+  // Share modal
+  const shareOverlay = document.getElementById('shareOverlay');
+  const shareEmail = document.getElementById('shareEmail');
+
+  // =========================================================
+  // Helpers
+  // =========================================================
+  function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+  function linesToArr(t){return String(t||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean)}
+  function arrToLines(a){return (a||[]).join('\n')}
+  function showToast(m){toast.textContent=m;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2200)}
+  function openModal(el){el.classList.add('show');el.setAttribute('aria-hidden','false')}
+  function closeModal(el){el.classList.remove('show');el.setAttribute('aria-hidden','true')}
+
+  function ensureConfigured(){
+    if(SUPABASE_URL.startsWith('PEGA_') || SUPABASE_ANON_KEY.startsWith('PEGA_')){
+      elView.innerHTML = `<div class="empty"><h2 style="margin:0 0 8px">Falta configurar Supabase</h2>
+        <p style="margin:0 0 12px">Edita <code class="inline">SUPABASE_URL</code> y <code class="inline">SUPABASE_ANON_KEY</code> en <b>index.html</b>.</p>
+        <p style="margin:0">En README tienes el SQL (incluye compartir por email).</p></div>`;
+      return false;
+    }
+    return true;
+  }
+
+  function fillCategorySelect(selected){
+    fCategory.innerHTML='';
+    categories.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;fCategory.appendChild(o);});
+    fCategory.value = selected && categories.includes(selected) ? selected : categories[0];
+  }
+
+  // =========================================================
+  // Auth
+  // =========================================================
+  async function refreshSession(){
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+    paintAuth();
+  }
+  function paintAuth(){
+    if(session?.user){
+      authStatus.textContent='Sesión activa';
+      userChip.textContent=session.user.email||session.user.id.slice(0,8);
+      userChip.classList.add('ok');
+      btnLogin.style.display='none';
+      btnLogout.style.display='inline-block';
+    }else{
+      authStatus.textContent='Sin sesión';
+      userChip.textContent='—';
+      userChip.classList.remove('ok');
+      btnLogin.style.display='inline-block';
+      btnLogout.style.display='none';
+    }
+  }
+
+  async function loginWithMagicLink(email){
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: redirectTo }});
+    if(error){ alert(error.message); return; }
+    showToast('Te mandé un enlace al email ✅');
+  }
+  async function logout(){
+    await sb.auth.signOut();
+    session=null; recipes=[];
+    paintAuth(); render();
+  }
+
+  // =========================================================
+  // Data
+  // =========================================================
+  async function loadRecipes(){
+    if(!session?.user){ recipes=[]; return; }
+    // Importante: aquí NO filtramos. Deja que RLS haga su magia:
+    // - mis recetas
+    // - recetas públicas
+    // - recetas compartidas conmigo (recipe_shares)
+    const { data, error } = await sb.from('recipes').select('*').order('created_at',{ascending:false});
+    if(error){ alert(error.message); return; }
+    recipes = data||[];
+  }
+
+  async function saveRecipeToDB(payload){
+    if(!session?.user){ alert('Primero entra con tu email.'); return; }
+    if(editingUuid){
+      const { error } = await sb.from('recipes').update(payload).eq('id', editingUuid);
+      if(error){ alert(error.message); return; }
+      showToast('Actualizada ✅');
+    }else{
+      const { error } = await sb.from('recipes').insert(payload);
+      if(error){ alert(error.message); return; }
+      showToast('Guardada ✅');
+    }
+    await loadRecipes();
+    closeModal(overlay);
+    render();
+  }
+
+  async function deleteRecipe(id){
+    if(!confirm('¿Borrar esta receta?')) return;
+    const { error } = await sb.from('recipes').delete().eq('id', id);
+    if(error){ alert(error.message); return; }
+    showToast('Borrada 🗑️');
+    await loadRecipes();
+    goCategory(parseHash().cat||categories[0]);
+  }
+
+  async function shareRecipeReadOnly(recipeId, email){
+    const cleaned = (email||'').trim().toLowerCase();
+    if(!cleaned){ alert('Pon un email'); shareEmail.focus(); return; }
+    // Insertamos un permiso de lectura por email
+    const { error } = await sb.from('recipe_shares').insert({
+      recipe_id: recipeId,
+      shared_with_email: cleaned
+    });
+    if(error){ alert(error.message); return; }
+    showToast('Compartida ✅');
+  }
+
+  // =========================================================
+  // Render
+  // =========================================================
+  function parseHash(){ const h=location.hash.replace('#',''); const p=new URLSearchParams(h); return {cat:p.get('cat'), recipe:p.get('recipe')}; }
+  function goCategory(cat){ location.hash=`cat=${encodeURIComponent(cat)}`; }
+  function goRecipe(id){ location.hash=`recipe=${encodeURIComponent(id)}`; }
+
+  function countByCategory(cat){
+    const q=elQ.value.trim().toLowerCase();
+    return recipes.filter(r=>r.category===cat)
+      .filter(r=>!q||r.title.toLowerCase().includes(q)||(r.description||'').toLowerCase().includes(q)).length;
+  }
+  function renderMenu(activeCat){
+    elMenu.innerHTML='';
+    categories.forEach(cat=>{
+      const b=document.createElement('button');
+      b.className='menuBtn'+(cat===activeCat?' active':'');
+      b.innerHTML=`<div>${esc(cat)}</div><span>${countByCategory(cat)}</span>`;
+      b.onclick=()=>goCategory(cat);
+      elMenu.appendChild(b);
+    });
+  }
+  function cardRecipe(r){
+    const isMine=session?.user && r.owner_id===session.user.id;
+    const vis=r.visibility==='public'?'pública':'privada';
+    return `<div class="card" data-id="${esc(r.id)}">
+      <h3>${esc(r.title)}</h3>
+      <div class="meta">
+        <span class="pill">${esc(r.time||'—')}</span>
+        <span class="pill">${esc(r.difficulty||'—')}</span>
+        <span class="pill">raciones: ${esc(r.servings||'—')}</span>
+        <span class="pill">${isMine?'mía':'compartida'}</span>
+        <span class="pill">${vis}</span>
+      </div>
+      <p style="margin:10px 0 0;color:var(--muted);font-size:13px">${esc(r.description||'')}</p>
+    </div>`;
+  }
+  function listBlock(title, items){
+    if(!items||!items.length) return '';
+    return `<div class="section"><h3>${esc(title)}</h3><ul>${items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>`;
+  }
+  function stepsBlock(items){
+    if(!items||!items.length) return '';
+    return `<div class="section"><h3>Preparación paso a paso</h3><ol>${items.map(i=>`<li>${esc(i)}</li>`).join('')}</ol></div>`;
+  }
+
+  function renderCategory(cat){
+    if(!ensureConfigured()) return;
+    if(!session?.user){
+      elView.innerHTML = `<div class="empty"><h2 style="margin:0 0 8px">Entra con tu email</h2>
+        <p style="margin:0 0 12px">Luego podrás ver tus recetas + las que te compartan por email.</p>
+        <button class="btn primary" onclick="document.getElementById('btnLogin').click()">Entrar</button></div>`;
+      return;
+    }
+    const q=elQ.value.trim().toLowerCase();
+    const list=recipes.filter(r=>r.category===cat).filter(r=>!q||r.title.toLowerCase().includes(q)||(r.description||'').toLowerCase().includes(q));
+    elView.innerHTML = `<div class="crumbs">Menú / ${esc(cat)}</div>
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap">
+        <h2 style="margin:0">${esc(cat)}</h2><div class="meta">${list.length} receta(s)</div>
+      </div>
+      <div class="topActions"><button class="btn primary" id="btnNew">➕ Nueva receta</button></div>
+      ${list.length?`<div class="grid">${list.map(cardRecipe).join('')}</div>`:`<div class="empty">No hay recetas aquí todavía.</div>`}`;
+    elView.querySelectorAll('.card').forEach(c=>c.onclick=()=>goRecipe(c.getAttribute('data-id')));
+    document.getElementById('btnNew').onclick=()=>openEditor(null);
+  }
+
+  function renderRecipe(id){
+    if(!ensureConfigured()) return;
+    const r=recipes.find(x=>x.id===id);
+    if(!r){ elView.innerHTML=`<div class="empty">No existe o no tienes permiso.</div>`; return; }
+    const isMine=session?.user && r.owner_id===session.user.id;
+    const vis=r.visibility==='public'?'Pública':'Privada';
+    const shareLink=`${window.location.origin}${window.location.pathname}#recipe=${encodeURIComponent(r.id)}`;
+
+    elView.innerHTML = `<div class="crumbs">Menú / <a href="#cat=${encodeURIComponent(r.category)}" style="color:var(--accent);text-decoration:none">${esc(r.category)}</a> / ${esc(r.title)}</div>
+      <div class="recipeTitle"><h2>${esc(r.title)}</h2></div>
+      <div class="meta" style="margin-top:8px">
+        <span class="pill">${esc(r.category)}</span>
+        <span class="pill">Tiempo: ${esc(r.time||'—')}</span>
+        <span class="pill">Dificultad: ${esc(r.difficulty||'—')}</span>
+        <span class="pill">Raciones: ${esc(r.servings||'—')}</span>
+        <span class="pill">${isMine?'Mía':'Compartida'}</span>
+        <span class="pill">${vis}</span>
+      </div>
+      <div class="topActions">
+        <button class="btn" onclick="history.back()">⬅ Volver</button>
+        <button class="btn primary" onclick="window.print()">🖨️ Imprimir</button>
+        ${isMine?`<button class="btn" id="btnEdit">✏️ Editar</button>
+                 <button class="btn danger" id="btnDelete">🗑️ Borrar</button>
+                 <button class="btn" id="btnShare">👤 Compartir</button>`:''}
+        <button class="btn" id="btnCopyLink">🔗 Copiar link</button>
+      </div>
+      <div class="section" style="border-top:none;padding-top:0"><h3>Descripción breve</h3><p style="margin:0">${esc(r.description||'')}</p></div>
+      ${listBlock('Ingredientes', r.ingredients)}
+      ${stepsBlock(r.steps)}
+      ${listBlock('Puntos clave (NO cagarla)', r.keyPoints)}
+      ${listBlock('Textura y resultado final', r.texture)}
+      ${listBlock('Variantes y ajustes', r.variants)}
+      ${listBlock('Conservación / Recalentado', r.storage)}
+      ${listBlock('Notas personales', r.notes)}
+    `;
+
+    document.getElementById('btnCopyLink').onclick = async ()=>{
+      try{ await navigator.clipboard.writeText(shareLink); showToast('Link copiado ✅'); }
+      catch{ prompt('Copia el link:', shareLink); }
+    };
+
+    if(isMine){
+      document.getElementById('btnEdit').onclick=()=>openEditor(r);
+      document.getElementById('btnDelete').onclick=()=>deleteRecipe(r.id);
+      document.getElementById('btnShare').onclick=()=>{
+        sharingRecipeId = r.id;
+        shareEmail.value = '';
+        openModal(shareOverlay);
+        setTimeout(()=>shareEmail.focus(), 50);
+      };
+    }
+  }
+
+  function render(){
+    const {cat, recipe}=parseHash();
+    const activeCat=cat||categories[0];
+    renderMenu(activeCat);
+    if(recipe) renderRecipe(recipe);
+    else renderCategory(activeCat);
+  }
+
+  // =========================================================
+  // Editor form
+  // =========================================================
+  function clearForm(){
+    editingUuid=null;
+    modalTitle.textContent='Nueva receta';
+    fTitle.value=''; fTime.value=''; fDifficulty.value=''; fServings.value=''; fVisibility.value='private';
+    fDescription.value=''; fIngredients.value=''; fSteps.value=''; fKeyPoints.value=''; fTexture.value='';
+    fVariants.value=''; fStorage.value=''; fNotes.value='';
+    fillCategorySelect(categories[0]);
+  }
+  function openEditor(r){
+    if(!session?.user){ alert('Primero entra con tu email'); return; }
+    if(r){
+      editingUuid=r.id;
+      modalTitle.textContent='Editar receta';
+      fTitle.value=r.title||''; fillCategorySelect(r.category||categories[0]);
+      fVisibility.value=r.visibility||'private';
+      fTime.value=r.time||''; fDifficulty.value=r.difficulty||''; fServings.value=r.servings||'';
+      fDescription.value=r.description||'';
+      fIngredients.value=arrToLines(r.ingredients); fSteps.value=arrToLines(r.steps);
+      fKeyPoints.value=arrToLines(r.keyPoints); fTexture.value=arrToLines(r.texture);
+      fVariants.value=arrToLines(r.variants); fStorage.value=arrToLines(r.storage); fNotes.value=arrToLines(r.notes);
+    }else clearForm();
+    openModal(overlay);
+    setTimeout(()=>fTitle.focus(),50);
+  }
+
+  async function saveFromForm(){
+    const title=fTitle.value.trim(); if(!title){ alert('Pon un título'); fTitle.focus(); return; }
+    const payload={
+      owner_id: session.user.id,
+      title,
+      category: fCategory.value||categories[0],
+      visibility: fVisibility.value,
+      time: fTime.value.trim(),
+      difficulty: fDifficulty.value.trim(),
+      servings: fServings.value.trim(),
+      description: fDescription.value.trim(),
+      ingredients: linesToArr(fIngredients.value),
+      steps: linesToArr(fSteps.value),
+      keyPoints: linesToArr(fKeyPoints.value),
+      texture: linesToArr(fTexture.value),
+      variants: linesToArr(fVariants.value),
+      storage: linesToArr(fStorage.value),
+      notes: linesToArr(fNotes.value),
+    };
+    await saveRecipeToDB(payload);
+  }
+
+  // =========================================================
+  // Wire UI events
+  // =========================================================
+  document.getElementById('btnAuthClose').onclick = () => closeModal(authOverlay);
+  document.getElementById('btnAuthCancel').onclick = () => closeModal(authOverlay);
+  authOverlay.addEventListener('click', (e)=>{ if(e.target===authOverlay) closeModal(authOverlay); });
+
+  document.getElementById('btnClose').onclick = () => closeModal(overlay);
+  document.getElementById('btnCancel').onclick = () => closeModal(overlay);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeModal(overlay); });
+
+  document.getElementById('btnShareClose').onclick = () => closeModal(shareOverlay);
+  document.getElementById('btnShareCancel').onclick = () => closeModal(shareOverlay);
+  shareOverlay.addEventListener('click', (e)=>{ if(e.target===shareOverlay) closeModal(shareOverlay); });
+  document.getElementById('btnShareSave').onclick = async () => {
+    await shareRecipeReadOnly(sharingRecipeId, shareEmail.value);
+    closeModal(shareOverlay);
+  };
+
+  document.getElementById('btnSave').onclick = saveFromForm;
+
+  btnLogin.onclick = ()=>{ openModal(authOverlay); setTimeout(()=>authEmail.focus(),50); }
+  btnLogout.onclick = logout;
+  btnSendLink.onclick = async ()=>{
+    const email=authEmail.value.trim(); if(!email){ alert('Pon tu email'); authEmail.focus(); return; }
+    await loginWithMagicLink(email);
+    closeModal(authOverlay);
+  };
+
+  elQ.addEventListener('input', render);
+  window.addEventListener('hashchange', render);
+
+  // =========================================================
+  // INIT
+  // =========================================================
+  (async function init(){
+    if(!ensureConfigured()) return;
+
+    await refreshSession();
+
+    sb.auth.onAuthStateChange(async (_e, newSession)=>{
+      session=newSession;
+      paintAuth();
+      await loadRecipes();
+      render();
+    });
+
+    await loadRecipes();
+
+    if(!location.hash) location.hash = `cat=${encodeURIComponent(categories[0])}`;
+    render();
+  })();
+</script>
+</body>
+</html>
